@@ -1,6 +1,6 @@
 # 💬 ChatGPT Export Viewer
 
-A free, offline, single-file tool to browse, search, and export your entire ChatGPT conversation history. One HTML file, 85 KB — no Python, no dependencies, no sign-ups. Open in browser, load your export folder. View conversations with images, audio playback, and full-text search. Export to PDF, HTML, Markdown, or RTF — single or bulk. 100% offline, zero external calls. Your data never leaves your computer.
+A free, offline tool that turns your ChatGPT data export into a browsable, searchable conversation viewer — all from a single 85 KB HTML file. No Python, no dependencies, no sign-ups. Just open it in your browser and load your exported folder. View conversations with images, audio playback, and full-text search, then convert and export to PDF, HTML, Markdown, or RTF — individually or in bulk. Runs entirely offline with zero external calls. Your data never leaves your computer.
 
 ![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)
 
