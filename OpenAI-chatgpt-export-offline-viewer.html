@@ -1,0 +1,1434 @@
+<!DOCTYPE html>
+<!--
+  ChatGPT Export Viewer
+  Copyright (c) 2026 Marcus Thraen
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+
+  SPDX-License-Identifier: MIT
+-->
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ChatGPT Export Viewer</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root, [data-theme="light"] {
+    --bg: #f6f9fc; --surface: #ffffff; --surface2: #f0f3f7; --surface3: #e8ecf1;
+    --border: rgba(0,0,0,.06); --border-strong: rgba(0,0,0,.1);
+    --text: #0a2540; --text-dim: #516f90; --text-faint: #8898aa;
+    --accent: #635BFF; --accent-hover: #4840cc; --accent-dim: #8a84ff;
+    --user-bg: rgba(99,91,255,.04); --assistant-bg: #ffffff;
+    --green: #2dbe78; --orange: #e6930a; --red: #cd3d2d; --purple: #7c5cbf;
+    --shadow: 0 1px 3px rgba(0,0,0,.08); --shadow-lg: 0 4px 12px rgba(0,0,0,.1);
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    --mono: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    --radius: 8px; --radius-lg: 12px;
+  }
+  [data-theme="dark"] {
+    --bg: #111111; --surface: #1a1a1a; --surface2: #242424; --surface3: #2e2e2e;
+    --border: rgba(255,255,255,.06); --border-strong: rgba(255,255,255,.12);
+    --text: #ececec; --text-dim: #a0a0a0; --text-faint: #6b6b6b;
+    --accent: #635BFF; --accent-hover: #7a73ff; --accent-dim: #4840cc;
+    --user-bg: rgba(99,91,255,.08); --assistant-bg: rgba(255,255,255,.02);
+    --green: #3ecf8e; --orange: #f5a623; --red: #e25c3d; --purple: #a78bfa;
+    --shadow: 0 1px 3px rgba(0,0,0,.5); --shadow-lg: 0 4px 12px rgba(0,0,0,.6);
+  }
+  body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  .app { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar { width: 340px; min-width: 340px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+  .sidebar-head { padding: 16px 20px 14px; flex-shrink: 0; position: relative; }
+  .sidebar-brand { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .sidebar-brand h1 { font-size: 13px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text-dim); }
+  .search-box { width: 100%; padding: 9px 12px; background: var(--bg); border: 1px solid var(--border-strong); border-radius: var(--radius); color: var(--text); font-family: var(--font); font-size: 13px; outline: none; }
+  .search-box:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99,91,255,.15); }
+  .search-box::placeholder { color: var(--text-faint); }
+  .toolbar { padding: 10px 20px; border-bottom: 1px solid var(--border); display: flex; gap: 6px; flex-shrink: 0; overflow-x: auto; scrollbar-width: none; }
+  .toolbar::-webkit-scrollbar { display: none; }
+  .pill { padding: 4px 10px; border-radius: 20px; border: 1px solid var(--border-strong); background: transparent; color: var(--text-dim); font-size: 11px; font-weight: 500; cursor: pointer; font-family: var(--font); white-space: nowrap; }
+  .pill:hover { border-color: var(--accent); color: var(--text); }
+  .pill.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .pill .arrow { font-size: 9px; margin-left: 2px; }
+  .divider { width: 1px; background: var(--border-strong); margin: 0 4px; align-self: stretch; }
+  .stats { padding: 8px 20px; font-size: 11px; color: var(--text-faint); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .convo-list { flex: 1; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+  .convo-item { padding: 10px 20px; border-bottom: 1px solid var(--border); cursor: pointer; display: flex; align-items: baseline; gap: 8px; }
+  .convo-item:hover { background: var(--surface2); }
+  .convo-item.active { background: var(--surface2); box-shadow: inset 3px 0 0 var(--accent); }
+  .convo-title { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+  .convo-meta { font-size: 10px; color: var(--text-faint); white-space: nowrap; flex-shrink: 0; display: flex; gap: 6px; }
+  .convo-meta .has-img { color: var(--green); } .convo-meta .has-audio { color: var(--purple); }
+  .export-bar { padding: 10px 20px; border-top: 1px solid var(--border); flex-shrink: 0; background: var(--surface); }
+  .export-menu { display: none; position: absolute; top: 44px; right: 20px; width: 200px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius); box-shadow: var(--shadow-lg); overflow: hidden; z-index: 20; }
+  .export-menu.open { display: block; }
+  .export-menu-item { padding: 10px 16px; font-size: 13px; cursor: pointer; color: var(--text); font-family: var(--font); border: none; background: none; width: 100%; text-align: left; display: flex; justify-content: space-between; align-items: center; }
+  .export-menu-item:hover { background: var(--surface2); }
+  .export-menu-item span { color: var(--accent); font-size: 12px; font-weight: 600; }
+  .export-btn:disabled { opacity: .3; pointer-events: none; }
+  .progress-track { height: 3px; background: var(--border-strong); border-radius: 2px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--accent); width: 0%; transition: width .2s; border-radius: 2px; }
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); }
+  .main-head { padding: 16px 28px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; background: var(--surface); gap: 12px; overflow: hidden; }
+  .main-title-area { display: flex; align-items: center; gap: 12px; overflow: hidden; min-width: 0; flex: 1; }
+  .main-title { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .main-actions { display: flex; gap: 4px; flex-shrink: 0; }
+  .btn { padding: 6px 14px; border-radius: var(--radius); border: 1px solid var(--border-strong); background: var(--surface2); color: var(--text); font-family: var(--font); font-size: 12px; font-weight: 500; cursor: pointer; white-space: nowrap; }
+  .btn:hover { background: var(--surface3); border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { background: var(--accent-hover); }
+  .btn.sm { padding: 5px 10px; font-size: 11px; }
+  .btn.ghost { border: none; background: transparent; color: var(--text-dim); padding: 5px 8px; }
+  .btn.ghost:hover { color: var(--text); background: var(--surface2); }
+  .btn.ghost.active { color: var(--accent); background: rgba(99,91,255,.1); }
+  .btn.danger { color: var(--red); border-color: var(--red); background: transparent; }
+  .btn.danger:hover { background: rgba(226,92,61,.1); }
+  #chatSearchBar { padding: 10px 28px; border-bottom: 1px solid var(--border); background: var(--surface); align-items: center; gap: 8px; }
+  #chatSearchBar .search-box { flex: 1; padding: 7px 10px; font-size: 12px; }
+  .search-count { font-size: 11px; color: var(--text-faint); white-space: nowrap; }
+  .messages { flex: 1; overflow-y: auto; padding: 24px 28px; scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; contain: layout style; }
+  .message { margin-bottom: 20px; padding: 16px 20px; border-radius: var(--radius-lg); max-width: 88%; font-size: 14px; line-height: 1.7; word-wrap: break-word; }
+  .message.user { background: var(--user-bg); border: 1px solid rgba(99,91,255,.1); margin-left: auto; }
+  .message.chatgpt { background: var(--assistant-bg); border: 1px solid var(--border); }
+  .message.system { background: transparent; border: 1px dashed var(--border-strong); font-size: 12px; color: var(--text-dim); max-width: 100%; }
+  .msg-role { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+  .msg-ts { font-weight: 400; font-size: 9px; color: var(--text-faint); letter-spacing: 0; margin-left: 6px; }
+  .message.user .msg-role { color: var(--accent); }
+  .message.chatgpt .msg-role { color: var(--green); }
+  .message.system .msg-role { color: var(--orange); }
+  .msg-text { line-height: 1.7; }
+  .msg-text p { margin: 5px 0; }
+  .msg-text h1,.msg-text h2,.msg-text h3,.msg-text h4 { margin: 6px 0 10px; font-weight: 600; line-height: 1.3; }
+  .msg-text h1 { font-size: 1.3em; } .msg-text h2 { font-size: 1.15em; } .msg-text h3 { font-size: 1.05em; }
+  .msg-text blockquote { border-left: 3px solid var(--accent); padding: 4px 14px; margin: 8px 0; color: var(--text-dim); }
+  .msg-text ul,.msg-text ol { margin: 6px 0 6px 20px; } .msg-text li { margin: 3px 0; }
+  .msg-text table { border-collapse: collapse; margin: 8px 0; font-size: 13px; width: 100%; }
+  .msg-text th,.msg-text td { border: 1px solid var(--border-strong); padding: 6px 10px; text-align: left; }
+  .msg-text th { background: var(--surface2); font-weight: 600; }
+  .msg-text strong { font-weight: 600; } .msg-text em { font-style: italic; }
+  .msg-content code { font-family: var(--mono); background: rgba(99,91,255,.08); padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+  .msg-content pre { background: var(--surface2); padding: 14px; border-radius: var(--radius); overflow-x: auto; margin: 8px 0; font-family: var(--mono); font-size: 12px; line-height: 1.5; white-space: pre-wrap; border: 1px solid var(--border); }
+  .msg-image { margin: 8px 0; } .msg-image img { max-width: 100%; max-height: 500px; border-radius: var(--radius); border: 1px solid var(--border); cursor: pointer; }
+  .msg-image-placeholder, .msg-audio-placeholder { display: inline-block; margin: 8px 0; padding: 12px 16px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text-dim); font-size: 13px; }
+  .msg-audio { margin: 8px 0; padding: 12px 16px; background: rgba(167,139,250,.06); border: 1px solid rgba(167,139,250,.15); border-radius: var(--radius); }
+  .msg-audio-label { font-size: 11px; color: var(--purple); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
+  .msg-audio audio { width: 100%; height: 36px; border-radius: 6px; }
+  .search-hl { background: rgba(245,166,35,.3); border-radius: 2px; padding: 0 1px; }
+  .search-hl.active { background: rgba(245,166,35,.6); outline: 2px solid rgba(245,166,35,.8); }
+  [data-theme="light"] .search-hl { background: rgba(245,166,35,.35); }
+  [data-theme="light"] .search-hl.active { background: rgba(245,166,35,.55); }
+  .lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.88); z-index: 999; align-items: center; justify-content: center; cursor: zoom-out; }
+  .lightbox.open { display: flex; } .lightbox img { max-width: 92vw; max-height: 92vh; border-radius: var(--radius-lg); }
+  .drop-zone { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; width: 100%; padding: 40px; text-align: center; }
+  .drop-card { width: 520px; max-width: 94%; padding: 48px 40px; border: 1px solid var(--border-strong); border-radius: 16px; background: var(--surface); box-shadow: var(--shadow-lg); transition: all .25s; }
+  .drop-card.dragover { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(99,91,255,.15), var(--shadow-lg); transform: translateY(-2px); }
+  .drop-icon { font-size: 40px; margin-bottom: 16px; opacity: .5; }
+  .drop-card h2 { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+  .drop-card p { font-size: 13px; color: var(--text-dim); margin-bottom: 4px; line-height: 1.6; }
+  .steps { text-align: left; margin: 18px auto 0; max-width: 340px; font-size: 13px; color: var(--text-dim); line-height: 2; }
+  .steps span { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 10px; font-weight: 700; margin-right: 8px; }
+  .drop-buttons { display: flex; gap: 10px; justify-content: center; margin-top: 20px; }
+  .load-log { margin-top: 12px; font-size: 11px; color: var(--text-faint); max-height: 80px; overflow-y: auto; text-align: left; padding: 0 16px; font-family: var(--mono); line-height: 1.8; }
+  @media (max-width: 768px) { .sidebar { width: 100%; min-width: 100%; } .main { display: none; } .app.viewing .sidebar { display: none; } .app.viewing .main { display: flex; } .back-btn { display: inline-flex !important; } }
+  .back-btn { display: none; }
+  .empty-main { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-faint); font-size: 14px; }
+</style>
+</head>
+<body>
+<div id="dropZone" class="drop-zone"><div class="drop-card" id="dropArea"><div class="drop-icon">📂</div><h2>Import your ChatGPT export</h2><p>Select the unzipped export folder — everything runs locally.</p><div class="steps"><div><span>1</span> Unzip the ChatGPT export</div><div><span>2</span> Click "Choose Folder" below</div><div><span>3</span> Conversations merge automatically</div></div><div class="drop-buttons"><button class="btn primary" id="btnFolder">Choose Folder</button><button class="btn" id="btnFiles">JSON files only</button><button class="btn" id="dropBackBtn" onclick="dropGoBack()" style="display:none">← Back to chats</button></div><input type="file" id="folderInput" webkitdirectory directory multiple style="display:none"><input type="file" id="fileInput" multiple accept=".json" style="display:none"><div class="progress-track" id="loadProgress" style="display:none;margin-top:16px"><div class="progress-fill" id="progressFill"></div></div><div class="load-log" id="loadLog" style="display:none"></div></div></div>
+<div id="appView" class="app" style="display:none"><aside class="sidebar"><div class="sidebar-head"><div class="sidebar-brand"><h1>Conversations</h1><div style="display:flex;gap:2px"><button class="btn ghost sm" onclick="reopenFolder()" title="Open new folder">📂</button><button class="btn ghost sm" onclick="toggleExportMenu()" id="exportMenuBtn" title="Export all conversations">↓ Export</button><button class="btn ghost sm" onclick="toggleTheme()" id="themeBtn" title="Toggle theme">🌙</button></div></div><div class="export-menu" id="exportMenu"><button class="export-menu-item export-btn" onclick="closeExportMenu();exportAllMarkdown()">Export as <span>.md</span></button><button class="export-menu-item export-btn" onclick="closeExportMenu();exportAllHTML()">Export as <span>.html</span></button><button class="export-menu-item export-btn" onclick="closeExportMenu();exportAllPDF()">Export as <span>.pdf</span></button><button class="export-menu-item export-btn" onclick="closeExportMenu();exportAllRTF()">Export as <span>.rtf</span></button></div><input type="text" class="search-box" id="searchBox" placeholder="Search conversations..."></div><div class="toolbar"><button class="pill active" data-sort="date" onclick="toggleSort('date')">Date <span class="arrow">▼</span></button><button class="pill" data-sort="msgs" onclick="toggleSort('msgs')">Messages <span class="arrow"></span></button><div class="divider"></div><button class="pill" data-filter="images" onclick="toggleFilter('images')">🖼️ Images</button><button class="pill" data-filter="audio" onclick="toggleFilter('audio')">🔊 Audio</button></div><div class="stats" id="statsBar"></div><div class="convo-list" id="convoList"></div><div class="export-bar" id="exportProgressBar" style="display:none"><div id="exportProgress"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span style="font-size:10px;color:var(--text-faint)" id="exportStatus"></span><button class="btn sm danger" onclick="cancelExport()" style="padding:2px 8px;font-size:10px">Cancel</button></div><div class="progress-track"><div class="progress-fill" id="exportFill"></div></div></div></div></aside>
+<main class="main"><div class="main-head" id="mainHeader" style="display:none"><div class="main-title-area"><button class="btn sm back-btn" onclick="goBack()">←</button><div class="main-title" id="mainTitle"></div></div><div class="main-actions"><button class="btn ghost sm" onclick="toggleChatSearch()" title="Search in chat (Ctrl+F)">🔍</button><button class="btn sm" onclick="exportCurrentMD()">.md</button><button class="btn sm" onclick="exportCurrentHTML()">.html</button><button class="btn sm" onclick="exportCurrentPDF()">.pdf</button><button class="btn sm" onclick="exportCurrentRTF()">.rtf</button></div></div><div id="chatSearchBar" style="display:none"><div id="searchModeText" style="display:flex;align-items:center;gap:8px;flex:1"><input type="text" id="chatSearchInput" class="search-box" placeholder="Find in conversation..." oninput="onChatSearch()"><span class="search-count" id="chatSearchCount"></span><button class="btn ghost sm" onclick="chatSearchNav(-1)">▲</button><button class="btn ghost sm" onclick="chatSearchNav(1)">▼</button></div><div id="searchModeMedia" style="display:none;align-items:center;gap:8px;flex:1"><span class="search-count" id="mediaSearchLabel"></span><button class="btn ghost sm" onclick="mediaSearchNav(-1)">▲</button><button class="btn ghost sm" onclick="mediaSearchNav(1)">▼</button></div><div class="divider" style="height:20px"></div><button class="btn ghost sm" id="btnSearchImg" onclick="toggleMediaSearch('image')" title="Jump to images">🖼️</button><button class="btn ghost sm" id="btnSearchAud" onclick="toggleMediaSearch('audio')" title="Jump to audio">🔊</button><button class="btn ghost sm" onclick="closeChatSearch()">✕</button></div><div class="messages" id="messagesArea"><div class="empty-main">Select a conversation</div></div></main></div>
+<div class="lightbox" id="lightbox" onclick="this.classList.remove('open')"><img id="lightboxImg" src=""></div>
+<script>
+// ══ State ══
+let allConversations = [];
+let filteredConversations = [];
+let currentConvo = null;
+
+const mediaStore = {};
+const audioStore = {};
+const audioByConvo = {};
+const audioPointerMap = {};
+
+const IMAGE_EXTS = new Set(['.png','.jpg','.jpeg','.gif','.webp','.svg','.bmp']);
+const AUDIO_EXTS = new Set(['.mp3','.wav','.ogg','.m4a','.aac','.flac','.opus','.webm']);
+const MIME_MAP = {'.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.gif':'image/gif','.webp':'image/webp','.svg':'image/svg+xml','.bmp':'image/bmp','.mp3':'audio/mpeg','.wav':'audio/wav','.ogg':'audio/ogg','.m4a':'audio/mp4','.aac':'audio/aac','.flac':'audio/flac','.opus':'audio/opus','.webm':'audio/webm'};
+function getExt(n){ const i=n.lastIndexOf('.'); return i>=0?n.slice(i).toLowerCase():''; }
+function getMime(n){ return MIME_MAP[getExt(n)]||'application/octet-stream'; }
+function displayRole(role){ return role==='assistant'?'ChatGPT':role==='user'?'You':role==='tool'?'System':role==='system'?'System':escHtml(role.charAt(0).toUpperCase()+role.slice(1)); }
+function fmtTime(ts){ if(!ts||typeof ts!=='number'||!isFinite(ts))return ''; try{return new Date(ts*1000).toLocaleString('en-US',{timeZone:'America/New_York',month:'2-digit',day:'2-digit',year:'2-digit',hour:'numeric',minute:'2-digit',hour12:true});}catch{return '';} }
+function safeDate(ts,fmt){ if(!ts||typeof ts!=='number'||!isFinite(ts))return ''; try{const d=new Date(ts*1000);if(isNaN(d.getTime()))return '';if(fmt==='iso')return d.toISOString();if(fmt==='short')return `${d.getMonth()+1}/${d.getDate()}/${String(d.getFullYear()).slice(-2)}`;return d.toLocaleString();}catch{return '';} }
+function fileToBase64(file){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=()=>rej(new Error('read failed')); r.readAsDataURL(file); }); }
+function indexFile(file,store){ const b=URL.createObjectURL(file); const e={blobUrl:b,file}; store[file.name]=e; if(file.webkitRelativePath){ store[file.webkitRelativePath]=e; const p=file.webkitRelativePath.split('/'); if(p.length>1)store[p.slice(1).join('/')]=e; if(p.length>2)store[p.slice(2).join('/')]=e; } }
+
+// ══ File Import — with folder persistence via File System Access API ══
+
+const dropArea=document.getElementById('dropArea');
+['dragenter','dragover'].forEach(e=>dropArea.addEventListener(e,ev=>{ev.preventDefault();dropArea.classList.add('dragover')}));
+['dragleave','drop'].forEach(e=>dropArea.addEventListener(e,ev=>{ev.preventDefault();dropArea.classList.remove('dragover')}));
+dropArea.addEventListener('drop',ev=>processFiles([...ev.dataTransfer.files]));
+
+document.getElementById('btnFolder').addEventListener('click',async()=>{
+  // Try modern File System Access API first (allows persistence)
+  if(window.showDirectoryPicker){
+    try{
+      const handle=await window.showDirectoryPicker({mode:'read'});
+
+      saveDirHandle(handle);
+      const files=await readDirHandle(handle);
+      processFiles(files);
+      return;
+    }catch(e){if(e.name!=='AbortError')document.getElementById('folderInput').click();}
+  }else{document.getElementById('folderInput').click();}
+});
+document.getElementById('btnFiles').addEventListener('click',()=>document.getElementById('fileInput').click());
+document.getElementById('folderInput').addEventListener('change',e=>processFiles([...e.target.files]));
+document.getElementById('fileInput').addEventListener('change',e=>processFiles([...e.target.files]));
+
+// IndexedDB helpers for storing directory handle
+function saveDirHandle(handle){try{const r=indexedDB.open('chatgpt-viewer',1);r.onupgradeneeded=e=>e.target.result.createObjectStore('state');r.onsuccess=e=>{const db=e.target.result;const tx=db.transaction('state','readwrite');tx.objectStore('state').put(handle,'dirHandle');db.close();};}catch{}}
+function loadDirHandle(){return new Promise(res=>{try{const r=indexedDB.open('chatgpt-viewer',1);r.onupgradeneeded=e=>e.target.result.createObjectStore('state');r.onsuccess=e=>{const db=e.target.result;try{const tx=db.transaction('state','readonly');const req=tx.objectStore('state').get('dirHandle');req.onsuccess=()=>{db.close();res(req.result||null);};req.onerror=()=>{db.close();res(null);};}catch{db.close();res(null);}};r.onerror=()=>res(null);}catch{res(null);}});}
+async function readDirHandle(handle,path=''){
+  const files=[];
+  for await(const entry of handle.values()){
+    if(entry.kind==='file'){
+      const file=await entry.getFile();
+      // Attach webkitRelativePath equivalent
+      Object.defineProperty(file,'webkitRelativePath',{value:path?path+'/'+file.name:handle.name+'/'+file.name});
+      files.push(file);
+    }else if(entry.kind==='directory'){
+      const sub=await readDirHandle(entry,path?path+'/'+entry.name:handle.name+'/'+entry.name);
+      files.push(...sub);
+    }
+  }
+  return files;
+}
+// Auto-reload on page load
+(async()=>{
+  if(!window.showDirectoryPicker)return;
+  const handle=await loadDirHandle();
+  if(!handle)return;
+  try{
+    const perm=await handle.requestPermission({mode:'read'});
+    if(perm==='granted'){
+
+      const files=await readDirHandle(handle);
+      processFiles(files);
+    }
+  }catch{}
+})();
+
+async function processFiles(files){
+  // Reset state for fresh load
+  allConversations=[];filteredConversations=[];currentConvo=null;
+  for(const k in mediaStore){try{URL.revokeObjectURL(mediaStore[k].blobUrl);}catch{}delete mediaStore[k];}
+  for(const k in audioStore){try{URL.revokeObjectURL(audioStore[k].blobUrl);}catch{}delete audioStore[k];}
+  for(const k in audioByConvo)delete audioByConvo[k];
+  for(const k in audioPointerMap)delete audioPointerMap[k];
+  document.getElementById('dropBackBtn').style.display='none';
+  const progress=document.getElementById('loadProgress'),fill=document.getElementById('progressFill'),logEl=document.getElementById('loadLog');
+  progress.style.display='block'; logEl.style.display='block'; logEl.innerHTML=''; fill.style.width='0%';
+  function log(m,w){ 
+    const d=document.createElement('div');
+    if(w)d.style.color='var(--orange)';
+    d.textContent=m;
+    logEl.appendChild(d);
+    logEl.scrollTop=logEl.scrollHeight; 
+  }
+  const jsonFiles=[],imgFiles=[],audFiles=[]; let skA=0;
+  for(const f of files){ const ext=getExt(f.name); if(ext==='.json')jsonFiles.push(f); else if(IMAGE_EXTS.has(ext))imgFiles.push(f); else if(AUDIO_EXTS.has(ext))audFiles.push(f); else skA++; }
+  log(`Found ${jsonFiles.length} JSON, ${imgFiles.length} images, ${audFiles.length} audio`);
+  if(!jsonFiles.length){ log('No JSON files found.',true); return; }
+  const totalWork=jsonFiles.length+imgFiles.length+audFiles.length; let done=0;
+  // Images
+  if(imgFiles.length){ log('Indexing images...'); for(const f of imgFiles){ indexFile(f,mediaStore); done++; if(done%50===0)fill.style.width=(done/totalWork*100)+'%'; } fill.style.width=(done/totalWork*100)+'%'; log(`Indexed ${imgFiles.length} images`); }
+  // Audio by conversation
+  let orphanAud=0;
+  let manifestMap=null; // file path → conversation_id from export_manifest.json
+
+  // Try to parse export_manifest.json for file→conversation mapping
+  const manifestFile=jsonFiles.find(f=>f.name==='export_manifest.json'||(f.webkitRelativePath||'').endsWith('export_manifest.json'));
+  if(manifestFile){
+    try{
+      const mt=await manifestFile.text();
+      const md=JSON.parse(mt);
+      // Build mapping: look through logical_files or file_downloads or any structure that maps paths to conversations
+      manifestMap={};
+      if(md.logical_files){
+        for(const [key,val] of Object.entries(md.logical_files)){
+          if(val.conversation_id&&val.relative_path)manifestMap[val.relative_path]=val.conversation_id;
+          if(val.conversation_id&&val.path)manifestMap[val.path]=val.conversation_id;
+        }
+      }
+      if(md.file_downloads){
+        for(const entry of (Array.isArray(md.file_downloads)?md.file_downloads:Object.values(md.file_downloads))){
+          if(entry.conversation_id&&entry.relative_path)manifestMap[entry.relative_path]=entry.conversation_id;
+          if(entry.conversation_id&&entry.path)manifestMap[entry.path]=entry.conversation_id;
+        }
+      }
+      // Also check flat entries array
+      if(md.entries){
+        for(const entry of md.entries){
+          if(entry.conversation_id&&entry.path)manifestMap[entry.path]=entry.conversation_id;
+        }
+      }
+      // Also walk the entire manifest looking for any structure with conversation_id + path
+      function walkManifest(obj,depth){
+        if(depth>4||!obj||typeof obj!=='object')return;
+        if(obj.conversation_id&&(obj.relative_path||obj.path)){
+          manifestMap[obj.relative_path||obj.path]=obj.conversation_id;
+        }
+        if(Array.isArray(obj))obj.forEach(v=>walkManifest(v,depth+1));
+        else for(const v of Object.values(obj))walkManifest(v,depth+1);
+      }
+      walkManifest(md,0);
+      const mcount=Object.keys(manifestMap).length;
+      if(mcount>0)log(`Loaded ${mcount} file mappings from export_manifest.json`);
+      else{log('export_manifest.json found but no file mappings extracted',true);manifestMap=null;}
+    }catch{}
+  }
+
+  if(audFiles.length){ log('Indexing audio...'); 
+    for(const file of audFiles){ 
+      const rel=file.webkitRelativePath||''; 
+      const pp=rel.split('/'); 
+      const ai=pp.indexOf('audio'); 
+      let cid=null; 
+      // Method 1: folder structure {conversation_id}/audio/file.wav
+      if(ai>0)cid=pp[ai-1]; 
+      // Method 2: manifest mapping
+      if(!cid&&manifestMap){
+        // Try relative path without root folder
+        const relNoRoot=pp.slice(1).join('/');
+        cid=manifestMap[relNoRoot]||manifestMap[rel]||manifestMap[file.name];
+        // Also try just the conversation subfolder path
+        if(!cid&&pp.length>=3)cid=manifestMap[pp.slice(1,-1).join('/')+'/'+file.name];
+      }
+      const blobUrl=URL.createObjectURL(file); 
+      const entry={blobUrl,file}; 
+      audioStore[file.name]=entry; 
+      if(rel){audioStore[rel]=entry; if(pp.length>1)audioStore[pp.slice(1).join('/')]=entry;} 
+      if(cid){
+        if(!audioByConvo[cid])audioByConvo[cid]=[]; 
+        audioByConvo[cid].push({file,blobUrl,entry,name:file.name});
+      }else{orphanAud++;} 
+      done++; if(done%50===0)fill.style.width=(done/totalWork*100)+'%'; 
+    } 
+    for(const c in audioByConvo)audioByConvo[c].sort((a,b)=>a.name.localeCompare(b.name)); 
+    fill.style.width=(done/totalWork*100)+'%'; 
+    log(`Indexed ${audFiles.length} audio across ${Object.keys(audioByConvo).length} conversations`);
+    if(orphanAud>0) log(`${orphanAud} audio files not matched to conversations`,true);
+  }
+  // JSON
+  log('Loading conversations...'); let mc=0,dc=0; const seen=new Set();
+  jsonFiles.sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));
+  for(const file of jsonFiles){ log(`Reading ${file.name}...`); try{ const t=await file.text(); const d=JSON.parse(t); const items=Array.isArray(d)?d:(d.mapping||d.title)?[d]:[]; for(const c of items){ const id=c.id||c.conversation_id||null; if(id&&seen.has(id)){dc++;continue;} if(id)seen.add(id); allConversations.push(c); mc++; } }catch(e){log(`Skipped ${file.name}`,true);} done++; fill.style.width=(done/totalWork*100)+'%'; }
+  allConversations.sort((a,b)=>(b.create_time||0)-(a.create_time||0));
+  // Cache metadata
+  allConversations.forEach(c=>{ const stats=getConvoStats(c); c._mc=stats.msgs; c._hasImg=stats.hasImg; c._hasAud=stats.hasAud; c._imgCount=stats.imgCount; c._audCount=stats.audCount; });
+
+// Walk active path and count messages/media (lightweight, no part extraction)
+function getConvoStats(c){
+  let msgs=0,imgCount=0,audCount=0,hasImg=false,hasAud=false;
+  if(!c.mapping)return{msgs,hasImg,hasAud,imgCount,audCount};
+  let leafId=c.current_node;
+  if(!leafId){ for(const id in c.mapping){ if(!c.mapping[id].children||c.mapping[id].children.length===0){leafId=id;break;} } }
+  if(!leafId)return{msgs,hasImg,hasAud,imgCount,audCount};
+  let cur=leafId; const visited=new Set();
+  while(cur&&c.mapping[cur]&&!visited.has(cur)){
+    visited.add(cur);
+    const n=c.mapping[cur];
+    if(n?.message?.content){
+      const role=n.message.author?.role||'';
+      if(role!=='system'||!n.message.metadata?.is_visually_hidden_from_conversation) msgs++;
+      const parts=n.message.content.parts;
+      if(parts)for(const p of parts){if(p&&typeof p==='object'&&!Array.isArray(p)){
+        const ct=p.content_type||'';
+        if(ct==='image_asset_pointer'||ct.startsWith('image')){hasImg=true;imgCount++;}
+        if(ct==='audio_asset_pointer'||ct==='real_time_user_audio_video_asset_pointer'){hasAud=true;audCount++;}
+      }}
+    }
+    cur=c.mapping[cur].parent;
+  }
+  return{msgs,hasImg,hasAud,imgCount,audCount};
+}
+  filteredConversations=allConversations;
+  // Map audio pointers
+  if(Object.keys(audioByConvo).length){ 
+    log('Mapping audio...'); 
+    let mp=0, matched=0, noPointers=0;
+    for(const c of allConversations){ 
+      const cid=c.id||c.conversation_id; 
+      const cid2=c.conversation_id||c.id;
+      const matchKey=audioByConvo[cid]?cid:audioByConvo[cid2]?cid2:null;
+      if(!matchKey)continue;
+      matched++;
+      const ptrs=collectAudioPointers(c); 
+      const fs=audioByConvo[matchKey]; 
+      if(ptrs.length===0&&fs.length>0){noPointers++;continue;}
+      const lim=Math.min(ptrs.length,fs.length); 
+      for(let i=0;i<lim;i++){audioPointerMap[ptrs[i]]=fs[i].entry; mp++;} 
+    } 
+    log(`Mapped ${mp} audio files across ${matched} conversations`); 
+    if(noPointers)log(`${noPointers} conversations had audio files but no pointers`,true);
+  }
+  log(`Merged ${mc.toLocaleString()} conversations`+(dc?` (${dc} dupes removed)`:'')); fill.style.width='100%';
+  setTimeout(()=>{ document.getElementById('dropZone').style.display='none'; document.getElementById('appView').style.display='flex'; renderList(); updateStats(); },800);
+}
+
+
+// ══ Sort/Filter ══
+let activeFilters = { images: false, audio: false };
+// Multi-sort: each key can be independently on/off with its own direction
+// Order in array = priority (first = primary sort)
+let activeSorts = [ { key: 'date', dir: 'desc' } ];
+
+function toggleSort(key){
+  const existing = activeSorts.findIndex(s => s.key === key);
+  if (existing >= 0) {
+    const s = activeSorts[existing];
+    if (s.dir === 'desc') { s.dir = 'asc'; }
+    else { activeSorts.splice(existing, 1); } // remove on third click
+  } else {
+    activeSorts.push({ key, dir: 'desc' });
+  }
+  // Move the just-toggled sort to the END so it becomes the LAST tiebreaker
+  // Primary sort = first in array, secondary = second
+  // But we want the most recently activated to be PRIMARY
+  // So reverse: most recently touched goes to FRONT
+  const idx = activeSorts.findIndex(s => s.key === key);
+  if (idx > 0) {
+    const item = activeSorts.splice(idx, 1)[0];
+    activeSorts.unshift(item);
+  }
+  // Update button UI
+  document.querySelectorAll('.pill[data-sort]').forEach(b => {
+    const idx = activeSorts.findIndex(x => x.key === b.dataset.sort);
+    const arrow = b.querySelector('.arrow');
+    if (idx >= 0) {
+      const s = activeSorts[idx];
+      b.classList.add('active');
+      const prefix = activeSorts.length > 1 ? (idx + 1) + ' ' : '';
+      if (arrow) arrow.textContent = prefix + (s.dir === 'desc' ? '▼' : '▲');
+    } else {
+      b.classList.remove('active');
+      if (arrow) arrow.textContent = '';
+    }
+  });
+  applyFiltersAndSort(); renderList();
+}
+function toggleFilter(key){
+  activeFilters[key]=!activeFilters[key];
+  document.querySelectorAll('.pill[data-filter]').forEach(b=>{
+    b.classList.toggle('active',activeFilters[b.dataset.filter]);
+  });
+  applyFiltersAndSort(); renderList();
+}
+function applyFiltersAndSort(){
+  const q=document.getElementById('searchBox').value.toLowerCase().trim();
+  let list=allConversations;
+  if(q) list=list.filter(c=>(c.title||'').toLowerCase().includes(q)||getMessages(c).slice(0,8).some(m=>getTextContent(m).toLowerCase().includes(q)));
+  if(activeFilters.images) list=list.filter(c=>c._hasImg);
+  if(activeFilters.audio) list=list.filter(c=>c._hasAud);
+  filteredConversations=[...list];
+  // Multi-level sort
+  if (activeSorts.length) {
+    filteredConversations.sort((a, b) => {
+      for (const s of activeSorts) {
+        const d = s.dir === 'desc' ? -1 : 1;
+        let va, vb;
+        if (s.key === 'date') { va = a.create_time || 0; vb = b.create_time || 0; }
+        else if (s.key === 'msgs') { va = a._mc; vb = b._mc; }
+        if (va > vb) return -d;
+        if (va < vb) return d;
+      }
+      return 0;
+    });
+  }
+}
+
+// ══ Stats & List ══
+function updateStats(){ let tm=0; allConversations.forEach(c=>tm+=c._mc); document.getElementById('statsBar').textContent=`${allConversations.length.toLocaleString()} conversations · ~${tm.toLocaleString()} messages`; }
+function renderList(){
+  const list=document.getElementById('convoList'), frag=document.createDocumentFragment();
+  filteredConversations.forEach(c=>{
+    const div=document.createElement('div'); div.className='convo-item'+(currentConvo===c?' active':'');
+    const title=c.title||'Untitled';
+    const date=safeDate(c.create_time,'short')||'';
+    div.innerHTML=`<div class="convo-title">${escHtml(title)}</div><div class="convo-meta"><span>${date}</span><span>${c._mc}</span>${c._hasImg?'<span class="has-img">🖼️</span>':''}${c._hasAud?'<span class="has-audio">🔊</span>':''}</div>`;
+    div.onclick=()=>selectConvo(c); frag.appendChild(div);
+  });
+  list.innerHTML=''; list.appendChild(frag);
+}
+
+// ══ Conversation Display ══
+function selectConvo(c){
+  if(document.getElementById('chatSearchBar').style.display==='flex')closeChatSearch();
+  currentConvo=c; document.getElementById('mainHeader').style.display='flex'; document.getElementById('mainTitle').textContent=c.title||'Untitled';
+  // Reset audio usage tracking for conversation-level fallback
+  const cid=c.id||c.conversation_id; const cid2=c.conversation_id||c.id;
+  const af=audioByConvo[cid]||audioByConvo[cid2];
+  if(af)af.forEach(f=>f._used=false);
+    const area=document.getElementById('messagesArea'), msgs=getMessages(c), frag=document.createDocumentFragment();
+  msgs.forEach(m=>{ const div=document.createElement('div'); const cssRole=m.role==='assistant'?'chatgpt':m.role==='tool'?'system':m.role==='user'?'user':'system'; div.className='message '+cssRole; const ts=fmtTime(m.time); let inner=`<div class="msg-role">${displayRole(m.role)}${ts?` <span class="msg-ts">${ts}</span>`:''}</div><div class="msg-content">`; m.parts.forEach(p=>{ if(p.type==='text')inner+=`<div class="msg-text">${formatContent(p.content)}</div>`; else if(p.type==='image')inner+=renderImagePart(p); else if(p.type==='audio')inner+=renderAudioPart(p); else if(p.type==='media_unknown')inner+=renderUnknownMedia(p); }); inner+='</div>'; div.innerHTML=inner; frag.appendChild(div); });
+  area.innerHTML=''; area.appendChild(frag);
+  area.querySelectorAll('.msg-image img').forEach(img=>img.addEventListener('click',()=>{document.getElementById('lightboxImg').src=img.src;document.getElementById('lightbox').classList.add('open');}));
+  document.getElementById('appView').classList.add('viewing');
+  document.querySelectorAll('.convo-item').forEach((el,i)=>el.classList.toggle('active',filteredConversations[i]===c));
+}
+function goBack(){document.getElementById('appView').classList.remove('viewing');}
+
+// ══ Message Extraction ══
+function collectAudioPointers(c){ 
+  if(!c.mapping)return[]; 
+  let leafId=c.current_node;
+  if(!leafId){ for(const id in c.mapping){ if(!c.mapping[id].children||c.mapping[id].children.length===0){leafId=id;break;} } }
+  if(!leafId)return[];
+  const path=[]; let cur=leafId; const visited=new Set();
+  while(cur&&c.mapping[cur]&&!visited.has(cur)){ visited.add(cur); path.push(cur); cur=c.mapping[cur].parent; }
+  path.reverse();
+  const ptrs=[];
+  for(const nodeId of path){
+    const n=c.mapping[nodeId]; const parts=n?.message?.content?.parts;
+    if(parts)for(const p of parts){if(p&&typeof p==='object'&&!Array.isArray(p)){
+      if(p.content_type==='audio_asset_pointer'&&p.asset_pointer)ptrs.push(p.asset_pointer);
+      else if(p.content_type==='real_time_user_audio_video_asset_pointer'&&p.audio_asset_pointer?.asset_pointer)ptrs.push(p.audio_asset_pointer.asset_pointer);
+    }}
+  }
+  return ptrs;
+}
+
+function getMessages(c){ 
+  if(!c.mapping)return[]; 
+  // Walk BACKWARDS from current_node to root via parent pointers
+  // This follows the exact active branch, not a guess
+  let leafId=c.current_node;
+  if(!leafId){
+    // Fallback: find a leaf node (node with no children)
+    for(const id in c.mapping){
+      if(!c.mapping[id].children||c.mapping[id].children.length===0){leafId=id;break;}
+    }
+  }
+  if(!leafId)return[];
+  
+  // Collect path from leaf to root
+  const path=[];
+  let cur=leafId;
+  const visited=new Set();
+  while(cur&&c.mapping[cur]&&!visited.has(cur)){
+    visited.add(cur);
+    path.push(cur);
+    cur=c.mapping[cur].parent;
+  }
+  path.reverse(); // Now chronological: root → leaf
+  
+  const ordered=[];
+  for(const nodeId of path){
+    const n=c.mapping[nodeId];
+    if(!n?.message?.content)continue;
+    const msg=n.message;
+    const role=msg.author?.role||'unknown';
+    
+    // Skip tool messages that are just citation noise or empty
+    if(role==='tool'){
+      const vis=msg.metadata?.is_visually_hidden_from_conversation;
+      if(vis)continue;
+      const parts=extractParts(msg);
+      const cleaned=parts.map(p=>{if(p.type==='text'){const t=p.content.replace(/fileciteturn\d+file\d+/g,'').trim();return t?{...p,content:t}:null;}return p;}).filter(Boolean);
+      if(cleaned.length)ordered.push({role,parts:cleaned,time:msg.create_time||0});
+    } else {
+      if(role==='system'&&msg.metadata?.is_visually_hidden_from_conversation)continue;
+      const parts=extractParts(msg);
+      if(parts.length)ordered.push({role,parts,time:msg.create_time||0});
+    }
+  }
+  return ordered;
+}
+
+function extractParts(msg){
+  const parts=[], content=msg.content;
+  if(content.parts){ for(const p of content.parts){ if(typeof p==='string'){if(p.trim())parts.push({type:'text',content:p});} else if(p&&typeof p==='object'){
+    // Extract asset pointer — may be top-level or nested inside audio_asset_pointer
+    let ap=p.asset_pointer||p.url||p.image_url||'';
+    if(!ap&&p.audio_asset_pointer?.asset_pointer)ap=p.audio_asset_pointer.asset_pointer;
+    const fn=p.file_name||p.name||'',ct=p.content_type||'';
+    // Nested audio metadata
+    const audioMeta=p.audio_asset_pointer?.metadata||p.metadata||{};
+    if(ct==='audio_transcription'){if(p.text&&p.text.trim())parts.push({type:'text',content:p.text});continue;}
+    if(ct==='audio_asset_pointer'||ct==='real_time_user_audio_video_asset_pointer'||AUDIO_EXTS.has(getExt(fn))){parts.push({type:'audio',assetPointer:ap,fileName:fn,metadata:audioMeta});continue;}
+    if(ct==='image_asset_pointer'||ct.startsWith('image')||IMAGE_EXTS.has(getExt(fn))||(p.width&&p.height)){parts.push({type:'image',assetPointer:ap,fileName:fn,width:p.width,height:p.height,metadata:p.metadata||{}});continue;}
+    if(ap&&ap.includes('://')){parts.push({type:'media_unknown',assetPointer:ap,fileName:fn,width:p.width,height:p.height,metadata:p.metadata||{}});continue;}
+    if(p.text&&typeof p.text==='string'&&p.text.trim())parts.push({type:'text',content:p.text});
+  }}}else if(content.text&&content.text.trim())parts.push({type:'text',content:content.text});
+  if(msg.metadata?.attachments)for(const a of msg.metadata.attachments){if(a.mime_type?.startsWith('image'))parts.push({type:'image',assetPointer:a.id||'',fileName:a.name||'',width:a.width,height:a.height,metadata:{}}); else if(a.mime_type?.startsWith('audio'))parts.push({type:'audio',assetPointer:a.id||'',fileName:a.name||'',metadata:{}});}
+  return parts;
+}
+
+// ══ Media Resolution ══
+function resolveMedia(p,store){ if(p.fileName&&store[p.fileName])return store[p.fileName]; if(p.assetPointer){const ptr=p.assetPointer; if(store[ptr])return store[ptr]; const fid=ptr.replace(/^[a-z\-]+:\/\//,''); if(store[fid])return store[fid]; for(const k of Object.keys(store))if(k.includes(fid))return store[k]; for(const k of Object.keys(store)){const b=k.split('/').pop().replace(/\.[^.]+$/,''); if(b.length>8&&fid.includes(b))return store[k];}} if(p.metadata?.dalle?.gen_id){const g=p.metadata.dalle.gen_id; for(const k of Object.keys(store))if(k.includes(g))return store[k];} return null; }
+
+function renderImagePart(p){ const e=resolveMedia(p,mediaStore)||resolveMedia(p,audioStore); if(e){const ext=getExt(e.file.name); if(AUDIO_EXTS.has(ext))return renderAudioEntry(e,p); return `<div class="msg-image"><img src="${e.blobUrl}" alt="${escHtml(p.fileName||'image')}" loading="lazy"></div>`;} return `<div class="msg-image-placeholder">🖼️ ${escHtml(p.fileName||p.assetPointer||'Image')}</div>`; }
+function renderAudioPart(p){ 
+  // Try pointer map first
+  if(p.assetPointer&&audioPointerMap[p.assetPointer])return renderAudioEntry(audioPointerMap[p.assetPointer],p); 
+  // Try direct store lookup
+  const e=resolveMedia(p,audioStore)||resolveMedia(p,mediaStore); 
+  if(e)return renderAudioEntry(e,p); 
+  // Try conversation-level fallback - find any unplayed audio in this conversation's folder
+  if(currentConvo){
+    const cid=currentConvo.id||currentConvo.conversation_id;
+    const cid2=currentConvo.conversation_id||currentConvo.id;
+    const files=audioByConvo[cid]||audioByConvo[cid2];
+    if(files&&files.length>0){
+      // Find first file not yet used
+      for(const f of files){
+        if(!f._used){f._used=true;return renderAudioEntry(f.entry,p);}
+      }
+      // All used — try resetting (multiple renders)
+      return renderAudioEntry(files[0].entry,p);
+    }
+  }
+  return `<div class="msg-audio-placeholder">🔊 Voice audio not in export (transcript shown above if available)</div>`; 
+}
+function renderAudioEntry(e,p){ const mime=getMime(p.fileName||e.file.name); return `<div class="msg-audio"><div class="msg-audio-label">🔊 ${escHtml(p.fileName||e.file.name||'Voice message')}</div><audio controls preload="metadata"><source src="${e.blobUrl}" type="${mime}"></audio></div>`; }
+function renderUnknownMedia(p){ const ie=resolveMedia(p,mediaStore); if(ie)return `<div class="msg-image"><img src="${ie.blobUrl}" alt="${escHtml(p.fileName||'image')}" loading="lazy"></div>`; if(p.assetPointer&&audioPointerMap[p.assetPointer])return renderAudioEntry(audioPointerMap[p.assetPointer],p); const ae=resolveMedia(p,audioStore); if(ae)return renderAudioEntry(ae,p); return `<div class="msg-image-placeholder">📎 ${escHtml(p.fileName||p.assetPointer||'Media')}</div>`; }
+
+// ══ Formatting ══
+function escHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function formatContent(text){
+  // Strip ChatGPT citation markers (Unicode private use area)
+  let s=text.replace(/\ue200cite\ue202[^\ue201]*\ue201/g,'')
+            .replace(/\ue200navlist\ue202[^\ue201]*\ue201/g,'')
+            .replace(/fileciteturn\d+\w*/g,'')
+            .replace(/【[^】]*】/g,'');
+
+  // Code blocks first (protect from other processing)
+  const codeBlocks=[];
+  s=s.replace(/```(\w*)\n([\s\S]*?)```/g,(_,lang,code)=>{
+    codeBlocks.push('<pre><code>'+escHtml(code)+'</code></pre>');
+    return '\x00CB'+(codeBlocks.length-1)+'\x00';
+  });
+
+  // Process line by line
+  const lines=s.split('\n');
+  let html='';
+  let inTable=false, inList=false, listType='';
+  let inBlockquote=false;
+
+  for(let i=0;i<lines.length;i++){
+    let line=lines[i];
+
+    // Code block placeholder
+    const cbMatch=line.match(/^\x00CB(\d+)\x00$/);
+    if(cbMatch){ closeLists(); html+=codeBlocks[+cbMatch[1]]; continue; }
+
+    // Horizontal rule
+    if(/^---+$/.test(line.trim())){ closeLists(); html+='<div style="margin:8px 0"></div>'; continue; }
+
+    // Headers
+    const hMatch=line.match(/^(#{1,4})\s+(.+)/);
+    if(hMatch){ closeLists(); const lvl=hMatch[1].length; html+=`<h${lvl}>${inline(hMatch[2])}</h${lvl}>`; continue; }
+
+    // Table
+    if(line.trim().startsWith('|')&&line.trim().endsWith('|')){
+      const cells=line.split('|').slice(1,-1).map(c=>c.trim());
+      if(!inTable){ inTable=true; closeLists();
+        // Check if next line is separator
+        const nextLine=lines[i+1]||'';
+        if(/^\|[\s\-:|]+\|$/.test(nextLine.trim())){
+          html+='<table><thead><tr>'+cells.map(c=>'<th>'+inline(c)+'</th>').join('')+'</tr></thead><tbody>';
+          i++; continue;
+        } else {
+          html+='<table><tbody><tr>'+cells.map(c=>'<td>'+inline(c)+'</td>').join('')+'</tr>';
+          continue;
+        }
+      }
+      html+='<tr>'+cells.map(c=>'<td>'+inline(c)+'</td>').join('')+'</tr>';
+      continue;
+    } else if(inTable){ inTable=false; html+='</tbody></table>'; }
+
+    // Blockquote
+    if(line.match(/^>\s?/)){
+      const content=line.replace(/^>\s?/,'');
+      if(!inBlockquote){inBlockquote=true; closeLists(); html+='<blockquote>';}
+      html+=inline(content)+'<br>';
+      continue;
+    } else if(inBlockquote){inBlockquote=false; html+='</blockquote>';}
+
+    // Unordered list
+    if(line.match(/^[-*]\s+/)){
+      const content=line.replace(/^[-*]\s+/,'');
+      if(!inList||listType!=='ul'){closeLists();inList=true;listType='ul';html+='<ul>';}
+      html+='<li>'+inline(content)+'</li>';
+      continue;
+    }
+    // Ordered list
+    if(line.match(/^\d+\.\s+/)){
+      const content=line.replace(/^\d+\.\s+/,'');
+      if(!inList||listType!=='ol'){closeLists();inList=true;listType='ol';html+='<ol>';}
+      html+='<li>'+inline(content)+'</li>';
+      continue;
+    }
+
+    closeLists();
+
+    // Empty line = paragraph break
+    if(!line.trim()){ html+='<p></p>'; continue; }
+
+    // Regular text
+    html+='<p>'+inline(line)+'</p>';
+  }
+  closeLists();
+  if(inTable){html+='</tbody></table>';}
+  if(inBlockquote){html+='</blockquote>';}
+
+  return html;
+
+  function closeLists(){
+    if(inList){html+=listType==='ul'?'</ul>':'</ol>';inList=false;listType='';}
+  }
+  function inline(t){
+    let r=escHtml(t);
+    r=r.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+    r=r.replace(/\*(.+?)\*/g,'<em>$1</em>');
+    r=r.replace(/`([^`]+)`/g,'<code>$1</code>');
+    // Sanitize links: only allow http/https URLs
+    r=r.replace(/\[([^\]]+)\]\(([^)]+)\)/g,(_,text,url)=>{
+      const safeUrl=(/^https?:\/\//i.test(url))?url:'#';
+      return `<a href="${safeUrl}" rel="noopener noreferrer" target="_blank" style="color:var(--accent)">${text}</a>`;
+    });
+    return r;
+  }
+}
+function getTextContent(m){return m.parts.filter(p=>p.type==='text').map(p=>p.content).join('\n');}
+
+// ══ Search ══
+let searchTimeout;
+document.getElementById('searchBox').addEventListener('input',function(){clearTimeout(searchTimeout);searchTimeout=setTimeout(()=>{applyFiltersAndSort();renderList();},250);});
+
+// ══ Theme ══
+function toggleTheme(){const h=document.documentElement;const n=(h.getAttribute('data-theme')||'light')==='light'?'dark':'light';h.setAttribute('data-theme',n);document.getElementById('themeBtn').textContent=n==='light'?'🌙':'☀️';}
+function toggleExportMenu(){document.getElementById('exportMenu').classList.toggle('open');}
+function closeExportMenu(){document.getElementById('exportMenu').classList.remove('open');}
+document.addEventListener('click',e=>{const m=document.getElementById('exportMenu');const b=document.getElementById('exportMenuBtn');if(m&&!m.contains(e.target)&&e.target!==b)m.classList.remove('open');});
+function reopenFolder(){
+  // Reset file inputs so change event fires even for same folder
+  document.getElementById('folderInput').value='';
+  document.getElementById('fileInput').value='';
+  // Show drop zone with back button, hide app
+  document.getElementById('appView').style.display='none';
+  document.getElementById('dropZone').style.display='flex';
+  document.getElementById('loadProgress').style.display='none';
+  document.getElementById('loadLog').style.display='none';
+  // Show back button if we have existing conversations
+  const bb=document.getElementById('dropBackBtn');
+  if(allConversations.length>0){bb.style.display='inline-flex';}else{bb.style.display='none';}
+}
+function dropGoBack(){
+  document.getElementById('dropZone').style.display='none';
+  document.getElementById('appView').style.display='flex';
+}
+
+// ══ Base64 helper ══
+async function getBase64DataUri(e){if(!e?.file)return null;try{return await fileToBase64(e.file);}catch{return null;}}
+
+// ══ Markdown Export ══
+function convoToMarkdown(c){const t=c.title||'Untitled';const d=safeDate(c.create_time,'iso');let md=`# ${t}\n\n_${d}_\n\n`;getMessages(c).forEach(m=>{const ts=fmtTime(m.time);md+=`### ${displayRole(m.role)}${ts?' '+ts:''}\n\n`;m.parts.forEach(p=>{if(p.type==='text')md+=p.content+'\n\n';else if(p.type==='image')md+=`[Image: ${p.fileName||'image'}]\n\n`;else if(p.type==='audio')md+=`[Audio: voice message]\n\n`;else if(p.type==='media_unknown')md+=`[Media file]\n\n`;});});return md;}
+
+// ══ HTML Export (base64 embedded) ══
+async function convoToHTMLDoc(c){
+  const title=escHtml(c.title||'Untitled'),date=safeDate(c.create_time);let body='';
+  const msgs=getMessages(c);
+  for(const m of msgs){
+    const rc=m.role==='user'?'#635BFF':m.role==='assistant'?'#3ecf8e':'#f5a623';
+    const ts=fmtTime(m.time);
+    let ct='';
+    for(const p of m.parts){if(p.type==='text')ct+=`<div class="md">${formatContent(p.content)}</div>`;
+    else if(p.type==='image'||p.type==='media_unknown'){const e=resolveMedia(p,mediaStore);const u=await getBase64DataUri(e);if(u)ct+=`<div style="margin:8px 0"><img src="${u}" style="max-width:100%;border-radius:8px"></div>`;else ct+=`<div style="color:#8898aa;font-style:italic">🖼️ Image not available</div>`;}
+    else if(p.type==='audio'){const e=(p.assetPointer&&audioPointerMap[p.assetPointer])||resolveMedia(p,audioStore);const u=await getBase64DataUri(e);if(u)ct+=`<div style="margin:8px 0;padding:12px;background:rgba(167,139,250,.05);border:1px solid rgba(167,139,250,.12);border-radius:8px"><div style="font-size:11px;color:#7c5cbf;font-weight:600;margin-bottom:5px">🔊 Voice message</div><audio controls style="width:100%"><source src="${u}"></audio></div>`;else ct+=`<div style="color:#8898aa;font-style:italic">🔊 Voice audio not in export</div>`;}}
+    body+=`<div class="msg"><div class="role" style="color:${rc}">${escHtml(displayRole(m.role))}${ts?` <span class="ts">${ts}</span>`:''}</div>${ct}</div>`;}
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title><style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#fff;color:#0a2540;max-width:760px;margin:0 auto;padding:28px;font-size:14px;line-height:1.7}h1{font-size:22px;font-weight:600;margin-bottom:4px}.date{font-size:12px;color:#8898aa;margin-bottom:24px}.msg{margin:22px 0}.role{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}.ts{font-weight:400;font-size:9px;color:#c5cdd8;letter-spacing:0;margin-left:6px}hr{display:none}pre{background:#f6f9fc;padding:14px;border-radius:8px;overflow-x:auto;font-size:13px;border:1px solid #e8ecf1}code{font-family:'SF Mono',monospace;background:#f0f3f7;padding:1px 5px;border-radius:4px}img{max-width:100%;border-radius:8px}audio{border-radius:6px}.md h1,.md h2,.md h3,.md h4{margin:6px 0 10px;font-weight:600;line-height:1.3}.md h1{font-size:1.3em}.md h2{font-size:1.15em}.md h3{font-size:1.05em}.md blockquote{border-left:3px solid #635BFF;padding:4px 14px;margin:8px 0;color:#516f90}.md ul,.md ol{margin:6px 0 6px 20px}.md li{margin:3px 0}.md table{border-collapse:collapse;margin:8px 0;font-size:13px;width:100%}.md th,.md td{border:1px solid #e8ecf1;padding:6px 10px;text-align:left}.md th{background:#f6f9fc;font-weight:600}.md p{margin:4px 0}</style></head><body><h1>${title}</h1><div class="date">${date}</div>${body}</body></html>`;
+}
+
+async function exportCurrentMD(){if(!currentConvo)return;download(safeName(currentConvo.title)+'.md',convoToMarkdown(currentConvo),'text/markdown');}
+async function exportCurrentHTML(){if(!currentConvo)return;download(safeName(currentConvo.title)+'.html',await convoToHTMLDoc(currentConvo),'text/html');}
+
+// ══ Citation stripping (for PDF/DOCX) ══
+function stripCitations(t){
+  return t.replace(/\ue200cite\ue202[^\ue201]*\ue201/g,'').replace(/\ue200navlist\ue202[^\ue201]*\ue201/g,'').replace(/fileciteturn\d+\w*/g,'').replace(/【[^】]*】/g,'');
+}
+// Render markdown text into PDF with headers, lists, blockquotes
+function addTextToPdf(pdf, text){
+  const cleaned=stripCitations(text);
+  for(const raw of cleaned.split('\n')){
+    const line=raw.trim();
+    if(!line){ pdf.addGap(4); continue; }
+    if(/^---+$/.test(line)){ pdf.addGap(4); continue; }
+    const hMatch=line.match(/^(#{1,4})\s+(.+)/);
+    if(hMatch){ const lvl=hMatch[1].length; const sizes=[14,13,12,11];
+      pdf.addGap(1); pdf.setFont('B',sizes[lvl-1]||11,[30,30,30]);
+      pdf.addText(hMatch[2].replace(/\*\*(.+?)\*\*/g,'$1').replace(/\*(.+?)\*/g,'$1'));
+      pdf.addGap(5); pdf.setFont('N',10,[30,30,30]); continue; }
+    if(line.startsWith('> ')){ pdf.setFont('N',10,[100,100,100]);
+      pdf.addText('    '+line.slice(2).replace(/\*\*(.+?)\*\*/g,'$1'));
+      pdf.setFont('N',10,[30,30,30]); continue; }
+    if(/^[-*]\s+/.test(line)){ pdf.addText('  \u2022 '+line.replace(/^[-*]\s+/,'').replace(/\*\*(.+?)\*\*/g,'$1')); continue; }
+    if(/^\d+\.\s+/.test(line)){ const num=line.match(/^(\d+)\./)[1];
+      pdf.addText('  '+num+'. '+line.replace(/^\d+\.\s+/,'').replace(/\*\*(.+?)\*\*/g,'$1')); continue; }
+    if(line.startsWith('|')&&line.endsWith('|')){
+      if(/^\|[\s\-:|]+\|$/.test(line))continue;
+      const cells=line.split('|').slice(1,-1).map(c=>c.trim().replace(/\*\*(.+?)\*\*/g,'$1'));
+      pdf.addText('  '+cells.join('  |  ')); continue; }
+    pdf.addText(line.replace(/\*\*(.+?)\*\*/g,'$1').replace(/\*(.+?)\*/g,'$1').replace(/`([^`]+)`/g,'$1'));
+  }
+}
+
+// ══ PDF Export ══
+async function buildPdfBlob(convo){
+  const title=convo.title||'Untitled';const date=safeDate(convo.create_time);
+  const msgs=getMessages(convo);const pdf=new MiniPDF();
+  pdf.setFont('B',16);pdf.addText(title);pdf.setFont('N',9,[140,140,140]);pdf.addText(date);pdf.addGap(8);
+  let prevRole='';
+  for(let mi=0;mi<msgs.length;mi++){const m=msgs[mi];
+    if(mi>0){pdf.addGap(14);}
+    const rc=m.role==='user'?[59,111,212]:m.role==='assistant'?[46,139,87]:[196,122,58];
+    const ts=fmtTime(m.time);
+    pdf.addRoleLine(displayRole(m.role).toUpperCase(),ts,rc);
+    pdf.addGap(4);
+    for(const p of m.parts){
+      if(p.type==='text'){pdf.setFont('N',10,[30,30,30]);addTextToPdf(pdf,p.content);pdf.addGap(2);}
+      else if(p.type==='image'||p.type==='media_unknown'){const e=resolveMedia(p,mediaStore)||resolveMedia(p,audioStore);
+        if(e){try{const ab=await e.file.arrayBuffer();const bytes=new Uint8Array(ab);const ext=getExt(e.file.name);
+          if(ext==='.jpg'||ext==='.jpeg'){pdf.addJpeg(bytes,p.width||400,p.height||300);}
+          else{pdf.setFont('N',9,[140,140,140]);pdf.addText('[Image: '+(p.fileName||e.file.name)+']');}
+        }catch{pdf.setFont('N',9,[140,140,140]);pdf.addText('[Image]');}}
+        else{pdf.setFont('N',9,[140,140,140]);pdf.addText('[Image not available]');}pdf.addGap(2);}
+      else if(p.type==='audio'){pdf.setFont('N',9,[124,92,191]);pdf.addText('[Audio: voice message]');pdf.addGap(2);}
+    }
+  }
+  return pdf.toBlob();
+}
+async function exportCurrentPDF(){if(!currentConvo)return;const blob=await buildPdfBlob(currentConvo);const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=safeName(currentConvo.title)+'.pdf';a.click();URL.revokeObjectURL(a.href);}
+
+// ══ MiniPDF: binary PDF generator, supports text + JPEG images, zero deps ══
+class MiniPDF{
+  constructor(){
+    this.W=595.28;this.H=841.89;this.M=50;this.MW=this.W-2*this.M;
+    this.y=this.H-this.M;
+    this.fontName='F1';this.fontSize=10;this.color=[0,0,0];
+    this.pages=[];this.curOps=[];this.imgs=[];
+  }
+  setFont(style,size,color){this.fontName=style==='B'?'F2':'F1';this.fontSize=size||10;this.color=color||[0,0,0];}
+  needSpace(h){if(this.y-h<this.M){this.pages.push(this.curOps);this.curOps=[];this.y=this.H-this.M;}}
+  addGap(p){this.y-=p;}
+  addLine(){this.needSpace(4);this.curOps.push(`0.85 0.85 0.85 RG ${this.M} ${this.y.toFixed(2)} m ${(this.W-this.M).toFixed(2)} ${this.y.toFixed(2)} l S`);this.y-=5;}
+  addRoleLine(role,ts,color){
+    const lh=10*1.5;
+    this.needSpace(lh);
+    const [r,g,b]=color;
+    const esc=role.replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)');
+    let ops=`BT /F2 10 Tf ${(r/255).toFixed(3)} ${(g/255).toFixed(3)} ${(b/255).toFixed(3)} rg ${this.M} ${this.y.toFixed(2)} Td (${esc}) Tj`;
+    if(ts){
+      const offset=role.length*5.5+8;
+      const tsEsc=ts.replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)').replace(/[^\x20-\x7E]/g,'?');
+      ops+=` /F1 7 Tf 0.750 0.750 0.750 rg (  ${tsEsc}) Tj`;
+    }
+    ops+=' ET';
+    this.curOps.push(ops);
+    this.y-=lh;
+  }
+  addText(text){
+    if(!text)return;
+    const sz=this.fontSize,lh=sz*1.5,cpl=Math.floor(this.MW/(sz*0.48));
+    const [r,g,b]=this.color;
+    for(const raw of text.split('\n')){
+      if(!raw.trim()){this.y-=lh*0.5;continue;}
+      const words=raw.split(/\s+/);let line='';
+      for(const w of words){
+        if(line.length+w.length+1>cpl&&line){this._drawLine(line,sz,lh,r,g,b);line=w;}
+        else line=line?line+' '+w:w;
+      }
+      if(line)this._drawLine(line,sz,lh,r,g,b);
+    }
+  }
+  _drawLine(text,sz,lh,r,g,b){
+    this.needSpace(lh);
+    // Normalize Unicode to WinAnsi-safe characters
+    let safe=text
+      .replace(/[\u2018\u2019\u201A]/g,"'")  // smart single quotes → straight
+      .replace(/[\u201C\u201D\u201E]/g,'"')  // smart double quotes → straight
+      .replace(/[\u2013\u2014]/g,'-')         // en/em dash → hyphen
+      .replace(/[\u2026]/g,'...')             // ellipsis → three dots
+      .replace(/[\u00A0]/g,' ')              // non-breaking space → space
+      .replace(/[\u2022]/g,'*')              // bullet → asterisk
+      .replace(/[\u00B7]/g,'*')              // middle dot → asterisk
+      .replace(/[\u2190-\u21FF]/g,'->')      // arrows → ->
+      .replace(/[\u2600-\u26FF\u2700-\u27BF\uD800-\uDBFF][\uDC00-\uDFFF]?/g,'')  // emoji → remove
+      .replace(/[^\x00-\xFF]/g,'?');         // anything else outside Latin-1 → ?
+    const esc=safe.replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)').replace(/[\x00-\x1f]/g,' ');
+    this.curOps.push(`BT /${this.fontName} ${sz} Tf ${(r/255).toFixed(3)} ${(g/255).toFixed(3)} ${(b/255).toFixed(3)} rg ${this.M} ${this.y.toFixed(2)} Td (${esc}) Tj ET`);
+    this.y-=lh;
+  }
+  addJpeg(bytes,ow,oh){
+    let w=ow,h=oh;const sc=Math.min(1,this.MW/w,350/h);w=Math.round(w*sc);h=Math.round(h*sc);
+    this.needSpace(h+8);
+    const idx=this.imgs.length;
+    this.imgs.push({bytes,w:ow,h:oh,dw:w,dh:h,x:this.M,y:this.y-h,page:this.pages.length});
+    this.curOps.push(`__IMG${idx}__`);
+    this.y-=h+5;
+  }
+  toBlob(){
+    this.pages.push(this.curOps);
+    // Build binary PDF
+    const enc=new TextEncoder();
+    const chunks=[];let pos=0;
+    function w(s){const b=enc.encode(s);chunks.push(b);pos+=b.length;}
+    function wb(b){chunks.push(b);pos+=b.length;}
+    const offsets=[];
+    function startObj(id){offsets[id]=pos;w(`${id} 0 obj\n`);}
+    function endObj(){w('endobj\n');}
+    w('%PDF-1.4\n%\xFF\xFF\xFF\xFF\n');
+    let nextId=1;
+    const catalogId=nextId++;const pagesId=nextId++;const f1Id=nextId++;const f2Id=nextId++;
+    const imgIds=this.imgs.map(()=>nextId++);
+    const pageStructs=this.pages.map(()=>{const rId=nextId++;const sId=nextId++;const pId=nextId++;return{rId,sId,pId};});
+    startObj(f1Id);w('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>\n');endObj();
+    startObj(f2Id);w('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>\n');endObj();
+    for(let i=0;i<this.imgs.length;i++){
+      const img=this.imgs[i];
+      startObj(imgIds[i]);
+      w(`<< /Type /XObject /Subtype /Image /Width ${img.w} /Height ${img.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${img.bytes.length} >>\nstream\n`);
+      wb(img.bytes);
+      w('\nendstream\n');endObj();
+    }
+    for(let pi=0;pi<this.pages.length;pi++){
+      const ps=pageStructs[pi];
+      const pageImgs=this.imgs.map((img,i)=>({img,i})).filter(x=>x.img.page===pi);
+      let xo='';if(pageImgs.length)xo=` /XObject << ${pageImgs.map(x=>`/Im${x.i} ${imgIds[x.i]} 0 R`).join(' ')} >>`;
+      startObj(ps.rId);w(`<< /Font << /F1 ${f1Id} 0 R /F2 ${f2Id} 0 R >>${xo} >>\n`);endObj();
+      let stream=this.pages[pi].map(op=>{const m=op.match(/^__IMG(\d+)__$/);if(m){const img=this.imgs[+m[1]];return`q ${img.dw} 0 0 ${img.dh} ${img.x.toFixed(2)} ${img.y.toFixed(2)} cm /Im${m[1]} Do Q`;}return op;}).join('\n');
+      const streamBytes=enc.encode(stream);
+      startObj(ps.sId);w(`<< /Length ${streamBytes.length} >>\nstream\n`);wb(streamBytes);w('\nendstream\n');endObj();
+      startObj(ps.pId);w(`<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 ${this.W} ${this.H}] /Resources ${ps.rId} 0 R /Contents ${ps.sId} 0 R >>\n`);endObj();
+    }
+    startObj(catalogId);w(`<< /Type /Catalog /Pages ${pagesId} 0 R >>\n`);endObj();
+    startObj(pagesId);w(`<< /Type /Pages /Kids [${pageStructs.map(p=>p.pId+' 0 R').join(' ')}] /Count ${this.pages.length} >>\n`);endObj();
+    const xrefPos=pos;
+    const totalObjs=nextId;
+    w(`xref\n0 ${totalObjs}\n0000000000 65535 f \n`);
+    for(let i=1;i<totalObjs;i++){w(String(offsets[i]||0).padStart(10,'0')+' 00000 n \n');}
+    w(`trailer\n<< /Size ${totalObjs} /Root ${catalogId} 0 R >>\nstartxref\n${xrefPos}\n%%EOF`);
+    return new Blob(chunks,{type:'application/pdf'});
+  }
+  save(filename){
+    const blob=this.toBlob();
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;a.click();URL.revokeObjectURL(a.href);
+  }
+}
+
+// ══ RTF Export — plain text format, opens in Word/LibreOffice/Pages ══
+function rtfEsc(s){
+  let r='';
+  for(let i=0;i<s.length;i++){
+    const c=s.charCodeAt(i);
+    if(c===0x5C)r+='\\\\'; else if(c===0x7B)r+='\\{'; else if(c===0x7D)r+='\\}';
+    else if(c===0x0A)r+='\\par\n'; else if(c===0x0D)continue;
+    else if(c>127)r+='\\u'+c+'?';
+    else r+=s[i];
+  }
+  return r;
+}
+function addTextToRtf(text){
+  const cleaned=stripCitations(text);
+  let rtf='';
+  for(const raw of cleaned.split('\n')){
+    const line=raw.trim();
+    if(!line){rtf+='\\par\n';continue;}
+    if(/^---+$/.test(line)){rtf+='\\par\n';continue;}
+    const hMatch=line.match(/^(#{1,4})\s+(.+)/);
+    if(hMatch){const lvl=hMatch[1].length;const sizes=[28,26,24,22];const hText=hMatch[2].replace(/\*\*(.+?)\*\*/g,'$1').replace(/\*(.+?)\*/g,'$1');
+      rtf+=`{\\pard\\sb40\\sa80\\b\\fs${sizes[lvl-1]||22} ${rtfEsc(hText)}\\b0\\par}\n`;continue;}
+    if(line.startsWith('> ')){const qt=line.slice(2).replace(/\*\*(.+?)\*\*/g,'$1');
+      rtf+=`{\\pard\\li480\\cf4\\i ${rtfEsc(qt)}\\i0\\cf0\\par}\n`;continue;}
+    if(/^[-*]\s+/.test(line)){const content=line.replace(/^[-*]\s+/,'');
+      rtf+=`{\\pard\\li360\\fi-180 \\bullet  ${rtfInline(content)}\\par}\n`;continue;}
+    if(/^\d+\.\s+/.test(line)){rtf+=`{\\pard\\li360 ${rtfInline(line)}\\par}\n`;continue;}
+    if(line.startsWith('|')&&line.endsWith('|')){
+      if(/^\|[\s\-:|]+\|$/.test(line))continue;
+      const cells=line.split('|').slice(1,-1).map(c=>c.trim().replace(/\*\*(.+?)\*\*/g,'$1'));
+      rtf+=`{\\pard ${rtfEsc(cells.join('  |  '))}\\par}\n`;continue;}
+    rtf+=`{\\pard ${rtfInline(line)}\\par}\n`;
+  }
+  return rtf;
+}
+function rtfInline(line){
+  // Handle **bold** and *italic*
+  let r='';
+  const parts=line.split(/(\*\*.+?\*\*)/g);
+  for(const part of parts){
+    if(part.startsWith('**')&&part.endsWith('**')){r+=`{\\b ${rtfEsc(part.slice(2,-2))}\\b0}`;} 
+    else{
+      const italParts=part.split(/(\*.+?\*)/g);
+      for(const ip of italParts){
+        if(ip.startsWith('*')&&ip.endsWith('*')&&!ip.startsWith('**')){r+=`{\\i ${rtfEsc(ip.slice(1,-1))}\\i0}`;}
+        else{r+=rtfEsc(ip);}
+      }
+    }
+  }
+  return r;
+}
+
+async function buildRtfContent(convo){
+  const title=convo.title||'Untitled';
+  const date=safeDate(convo.create_time);
+  const msgs=getMessages(convo);
+  // RTF header with font table and color table
+  // Colors: 1=user blue, 2=chatgpt green, 3=system orange, 4=grey, 5=purple
+  let rtf='{\\rtf1\\ansi\\deff0\n';
+  rtf+='{\\fonttbl{\\f0\\fswiss Arial;}}\n';
+  rtf+='{\\colortbl;\\red59\\green111\\blue212;\\red46\\green139\\blue87;\\red196\\green122\\blue58;\\red136\\green136\\blue136;\\red124\\green92\\blue191;}\n';
+  // Title
+  rtf+=`{\\pard\\b\\fs32 ${rtfEsc(title)}\\b0\\par}\n`;
+  rtf+=`{\\pard\\cf4\\fs18 ${rtfEsc(date)}\\cf0\\par}\n`;
+  rtf+='\\par\n';
+  // Messages
+  for(const m of msgs){
+    const ci=m.role==='user'?1:m.role==='assistant'?2:3;
+    const ts=fmtTime(m.time);
+    rtf+=`{\\pard\\sb360\\sa80\\cf${ci}\\b\\fs20 ${rtfEsc(displayRole(m.role).toUpperCase())}${ts?'  {\\b0\\cf4\\fs14 '+rtfEsc(ts)+'}':''}\\b0\\cf0\\par}\n`;
+    for(const p of m.parts){
+      if(p.type==='text'){rtf+='{\\fs22 '+addTextToRtf(p.content)+'}\n';}
+      else if(p.type==='image'||p.type==='media_unknown'){
+        const e=resolveMedia(p,mediaStore)||resolveMedia(p,audioStore);
+        if(e){try{const ab=await e.file.arrayBuffer();const bytes=new Uint8Array(ab);const ext=getExt(e.file.name);
+          if(ext==='.jpg'||ext==='.jpeg'){
+            // Embed JPEG as hex in RTF
+            let w=p.width||600,h=p.height||400;
+            const maxTwips=7200; // ~5 inches
+            const scale=Math.min(1,maxTwips/(w*15));
+            const pw=Math.round(w*15*scale),ph=Math.round(h*15*scale);
+            let hex='';for(const b of bytes)hex+=(b<16?'0':'')+b.toString(16);
+            rtf+=`{\\pard\\sa100{\\pict\\jpegblip\\picwgoal${pw}\\pichgoal${ph}\n${hex}\n}\\par}\n`;
+          } else {
+            rtf+=`{\\pard\\cf4\\i\\fs20 [Image: ${rtfEsc(p.fileName||e.file.name)}]\\i0\\cf0\\par}\n`;
+          }
+        }catch{rtf+=`{\\pard\\cf4\\i\\fs20 [Image]\\i0\\cf0\\par}\n`;}}
+        else{rtf+=`{\\pard\\cf4\\i\\fs20 [Image not available]\\i0\\cf0\\par}\n`;}
+      }
+      else if(p.type==='audio'){rtf+=`{\\pard\\cf5\\i\\fs20 [Audio: voice message]\\i0\\cf0\\par}\n`;}
+    }
+  }
+  rtf+='}';
+  return rtf;
+}
+
+async function exportCurrentRTF(){
+  if(!currentConvo)return;
+  const rtf=await buildRtfContent(currentConvo);
+  download(safeName(currentConvo.title)+'.rtf',rtf,'application/rtf');
+}
+
+// ══ Export All — with progress bar, button locking, cancel ══
+let exportCancelled=false;
+function lockExports(label){
+  exportCancelled=false;
+  closeExportMenu();
+  document.getElementById('exportMenuBtn').disabled=true;
+  document.querySelectorAll('.export-btn').forEach(b=>b.disabled=true);
+  document.getElementById('exportProgressBar').style.display='block';
+  document.getElementById('exportStatus').textContent=label;
+  document.getElementById('exportFill').style.width='0%';
+}
+function updateExportProgress(i,total){
+  document.getElementById('exportFill').style.width=((i+1)/total*100)+'%';
+  document.getElementById('exportStatus').textContent=`${i+1} / ${total}`;
+}
+function unlockExports(){
+  document.getElementById('exportMenuBtn').disabled=false;
+  document.querySelectorAll('.export-btn').forEach(b=>b.disabled=false);
+  document.getElementById('exportProgressBar').style.display='none';
+}
+function cancelExport(){
+  exportCancelled=true;
+  document.getElementById('exportStatus').textContent='Cancelling...';
+}
+
+async function exportAllMarkdown(){
+  lockExports('Exporting .md...');
+  try{
+    const total=allConversations.length;
+    const enc=new TextEncoder();
+    const blobParts=[],cdEntries=[],pendingParts=[];let offset=0;let skipped=0;
+    for(let i=0;i<total;i++){
+      try{updateExportProgress(i,total);}catch{}
+      await forcePaint();
+      if(exportCancelled)return;
+      const c=allConversations[i];
+      const title=c.title||'Untitled';
+      try{
+        const data=enc.encode(convoToMarkdown(c));
+        const name=enc.encode(String(i+1).padStart(5,'0')+'_'+safeName(title)+'.md');
+        await appendToZip(blobParts,cdEntries,name,data,offset,pendingParts);
+        offset+=30+name.length+data.length;
+      }catch(ex){
+        skipped++;
+      }
+    }
+    updateExportStatus(skipped?`${total-skipped} exported, ${skipped} skipped — Building ZIP...`:'Building ZIP...');
+    await forcePaint();
+    await finalizeZip(blobParts,cdEntries,offset,'chatgpt-export-markdown.zip',pendingParts);
+  }catch(e){
+    updateExportStatus(`Fatal: ${e.message||e}`);
+    await new Promise(r=>setTimeout(r,5000));
+  }finally{unlockExports();}
+}
+
+async function exportAllHTML(){
+  lockExports('Exporting .html...');
+  try{
+    const total=allConversations.length;
+    const enc=new TextEncoder();
+    const blobParts=[],cdEntries=[],pendingParts=[];let offset=0;let skipped=0;
+    for(let i=0;i<total;i++){
+      updateExportProgress(i,total);
+      await forcePaint();
+      if(exportCancelled)return;
+      try{
+        const data=enc.encode(await convoToHTMLDoc(allConversations[i]));
+        const name=enc.encode(String(i+1).padStart(5,'0')+'_'+safeName(allConversations[i].title)+'.html');
+        await appendToZip(blobParts,cdEntries,name,data,offset,pendingParts);
+        offset+=30+name.length+data.length;
+      }catch{skipped++;}
+    }
+    if(skipped)updateExportStatus(`${total-skipped} exported, ${skipped} skipped — Building ZIP...`);
+    await forcePaint();
+    await finalizeZip(blobParts,cdEntries,offset,'chatgpt-export-html.zip',pendingParts);
+  }catch(e){
+    updateExportStatus(`Error: ${e.message||e}`);
+    await new Promise(r=>setTimeout(r,3000));
+  }finally{unlockExports();}
+}
+
+async function exportAllPDF(){
+  lockExports('Exporting .pdf...');
+  try{
+    const total=allConversations.length;
+    const blobParts=[],cdEntries=[],pendingParts=[];let offset=0;let skipped=0;
+    for(let i=0;i<total;i++){
+      updateExportProgress(i,total);
+      await forcePaint();
+      if(exportCancelled)return;
+      try{
+        const blob=await buildPdfBlob(allConversations[i]);
+        const data=new Uint8Array(await blob.arrayBuffer());
+        const name=new TextEncoder().encode(String(i+1).padStart(5,'0')+'_'+safeName(allConversations[i].title)+'.pdf');
+        await appendToZip(blobParts,cdEntries,name,data,offset,pendingParts);
+        offset+=30+name.length+data.length;
+      }catch{skipped++;}
+    }
+    if(skipped)updateExportStatus(`${total-skipped} exported, ${skipped} skipped — Building ZIP...`);
+    await forcePaint();
+    await finalizeZip(blobParts,cdEntries,offset,'chatgpt-export-pdf.zip',pendingParts);
+  }catch(e){
+    updateExportStatus(`Error: ${e.message||e}`);
+    await new Promise(r=>setTimeout(r,3000));
+  }finally{unlockExports();}
+}
+
+async function exportAllRTF(){
+  lockExports('Exporting .rtf...');
+  try{
+    const total=allConversations.length;
+    const enc=new TextEncoder();
+    const blobParts=[],cdEntries=[],pendingParts=[];let offset=0;let skipped=0;
+    for(let i=0;i<total;i++){
+      updateExportProgress(i,total);
+      await forcePaint();
+      if(exportCancelled)return;
+      try{
+        const data=enc.encode(await buildRtfContent(allConversations[i]));
+        const name=enc.encode(String(i+1).padStart(5,'0')+'_'+safeName(allConversations[i].title)+'.rtf');
+        await appendToZip(blobParts,cdEntries,name,data,offset,pendingParts);
+        offset+=30+name.length+data.length;
+      }catch{skipped++;}
+    }
+    if(skipped)updateExportStatus(`${total-skipped} exported, ${skipped} skipped — Building ZIP...`);
+    await forcePaint();
+    await finalizeZip(blobParts,cdEntries,offset,'chatgpt-export-rtf.zip',pendingParts);
+  }catch(e){
+    updateExportStatus(`Error: ${e.message||e}`);
+    await new Promise(r=>setTimeout(r,3000));
+  }finally{unlockExports();}
+}
+
+// Yield to browser
+function yieldThread(){return new Promise(r=>setTimeout(r,0));}
+// Force paint — guarantees browser renders before continuing
+function forcePaint(){return new Promise(r=>requestAnimationFrame(()=>setTimeout(r,0)));}
+
+// CRC32 lookup table — precomputed
+const CRC_TABLE=new Uint32Array(256);
+for(let i=0;i<256;i++){let c=i;for(let j=0;j<8;j++)c=(c>>>1)^(c&1?0xEDB88320:0);CRC_TABLE[i]=c;}
+
+// Async CRC32 with table lookup — yields every 1MB
+async function crc32bulk(d){
+  let c=~0;const len=d.length;
+  for(let start=0;start<len;start+=1048576){
+    const end=Math.min(start+1048576,len);
+    for(let i=start;i<end;i++)c=(c>>>8)^CRC_TABLE[(c^d[i])&0xFF];
+    if(end<len)await yieldThread();
+  }
+  return(~c)>>>0;
+}
+
+// Append one file — async CRC, merges pending parts every 50 files
+async function appendToZip(blobParts,cdEntries,name,data,offset,pendingParts){
+  const crc_=await crc32bulk(data);
+  const lh=new Uint8Array(30+name.length);
+  const lv=new DataView(lh.buffer);
+  lv.setUint32(0,0x04034b50,true);lv.setUint16(4,20,true);lv.setUint32(14,crc_,true);
+  lv.setUint32(18,data.length,true);lv.setUint32(22,data.length,true);lv.setUint16(26,name.length,true);
+  lh.set(name,30);
+  pendingParts.push(lh,data);
+  cdEntries.push({name,crc:crc_,size:data.length,offset});
+  if(cdEntries.length%50===0){
+    let total=0;for(const p of pendingParts)total+=p.length;
+    const merged=new Uint8Array(total);let pos=0;
+    for(const p of pendingParts){merged.set(p,pos);pos+=p.length;}
+    pendingParts.length=0;
+    blobParts.push(merged);
+    await yieldThread();
+  }
+}
+
+// Flush + central directory + download
+async function finalizeZip(blobParts,cdEntries,offset,filename,pendingParts){
+  updateExportStatus('Finalizing ZIP...');
+  await forcePaint();
+  // Flush remaining pending
+  if(pendingParts.length){
+    let total=0;for(const p of pendingParts)total+=p.length;
+    const merged=new Uint8Array(total);let pos=0;
+    for(const p of pendingParts){merged.set(p,pos);pos+=p.length;}
+    pendingParts.length=0;
+    blobParts.push(merged);
+  }
+  updateExportStatus('Building central directory...');
+  await forcePaint();
+  // Central directory as single buffer
+  let cdSize=0;
+  for(const e of cdEntries)cdSize+=46+e.name.length;
+  const cd=new Uint8Array(cdSize+22);
+  const dv=new DataView(cd.buffer);
+  let pos=0;
+  for(let i=0;i<cdEntries.length;i++){
+    const e=cdEntries[i];
+    dv.setUint32(pos,0x02014b50,true);dv.setUint16(pos+4,20,true);dv.setUint16(pos+6,20,true);
+    dv.setUint32(pos+16,e.crc,true);dv.setUint32(pos+20,e.size,true);dv.setUint32(pos+24,e.size,true);
+    dv.setUint16(pos+28,e.name.length,true);dv.setUint32(pos+42,e.offset,true);
+    cd.set(e.name,pos+46);
+    pos+=46+e.name.length;
+  }
+  dv.setUint32(pos,0x06054b50,true);dv.setUint16(pos+8,cdEntries.length,true);dv.setUint16(pos+10,cdEntries.length,true);
+  dv.setUint32(pos+12,cdSize,true);dv.setUint32(pos+16,offset,true);
+  blobParts.push(cd);
+  await yieldThread();
+  // Merge all parts into single Uint8Array so Blob() is instant
+  updateExportStatus(`Merging ${blobParts.length} chunks...`);
+  await forcePaint();
+  let totalSize=0;
+  for(const p of blobParts)totalSize+=p.length;
+  const out=new Uint8Array(totalSize);
+  let writePos=0;
+  for(let i=0;i<blobParts.length;i++){
+    out.set(blobParts[i],writePos);
+    writePos+=blobParts[i].length;
+    blobParts[i]=null; // release for GC
+    if(i%5===0)await yieldThread();
+  }
+  blobParts.length=0;
+  updateExportStatus(`Saving ${(totalSize/1048576).toFixed(1)} MB...`);
+  await forcePaint();
+  const blob=new Blob([out],{type:'application/zip'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;a.click();
+  URL.revokeObjectURL(a.href);
+}
+function updateExportStatus(msg){document.getElementById('exportStatus').textContent=msg;}
+
+// ══ ZIP helpers ══
+function safeName(s){return(s||'untitled').replace(/[^a-zA-Z0-9_\- ]/g,'').trim().replace(/\s+/g,'_').substring(0,80);}
+function download(n,c,t){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([c],{type:t}));a.download=n;a.click();}
+
+// ══ In-Chat Search ══
+let chatSearchMatches=[];
+let chatSearchIdx=-1;
+
+let currentSearchMode='text'; // 'text', 'image', 'audio'
+let mediaElements=[];
+let mediaIdx=-1;
+
+function toggleChatSearch(){
+  const bar=document.getElementById('chatSearchBar');
+  if(bar.style.display==='flex'&&currentSearchMode==='text'){closeChatSearch();}
+  else{showTextSearch();}
+}
+function showTextSearch(){
+  currentSearchMode='text';
+  document.getElementById('chatSearchBar').style.display='flex';
+  document.getElementById('searchModeText').style.display='flex';
+  document.getElementById('searchModeMedia').style.display='none';
+  document.getElementById('btnSearchImg').classList.remove('active');
+  document.getElementById('btnSearchAud').classList.remove('active');
+  document.getElementById('chatSearchInput').focus();
+}
+function toggleMediaSearch(type){
+  if(currentSearchMode===type){showTextSearch();return;}
+  currentSearchMode=type;
+  clearChatHighlights();
+  chatSearchMatches=[];chatSearchIdx=-1;
+  document.getElementById('chatSearchInput').value='';
+  document.getElementById('chatSearchCount').textContent='';
+  document.getElementById('chatSearchBar').style.display='flex';
+  document.getElementById('searchModeText').style.display='none';
+  document.getElementById('searchModeMedia').style.display='flex';
+  document.getElementById('btnSearchImg').classList.toggle('active',type==='image');
+  document.getElementById('btnSearchAud').classList.toggle('active',type==='audio');
+  // Collect matching elements
+  const area=document.getElementById('messagesArea');
+  const selector=type==='image'?'.msg-image,.msg-image-placeholder':'.msg-audio,.msg-audio-placeholder';
+  mediaElements=[...area.querySelectorAll(selector)];
+  mediaIdx=mediaElements.length?0:-1;
+  document.getElementById('mediaSearchLabel').textContent=mediaElements.length?`1 / ${mediaElements.length} ${type==='image'?'images':'audio'}`:`No ${type} found`;
+  if(mediaIdx>=0)scrollToMedia();
+}
+function mediaSearchNav(dir){
+  if(!mediaElements.length)return;
+  mediaElements[mediaIdx]?.style.removeProperty('outline');
+  mediaIdx=(mediaIdx+dir+mediaElements.length)%mediaElements.length;
+  scrollToMedia();
+}
+function scrollToMedia(){
+  const el=mediaElements[mediaIdx];
+  if(!el)return;
+  mediaElements.forEach(e=>e.style.removeProperty('outline'));
+  el.style.outline='3px solid var(--accent)';
+  el.style.outlineOffset='4px';
+  el.style.borderRadius='8px';
+  el.scrollIntoView({behavior:'smooth',block:'center'});
+  document.getElementById('mediaSearchLabel').textContent=`${mediaIdx+1} / ${mediaElements.length} ${currentSearchMode==='image'?'images':'audio'}`;
+}
+function closeChatSearch(){
+  document.getElementById('chatSearchBar').style.display='none';
+  document.getElementById('chatSearchInput').value='';
+  clearChatHighlights();
+  chatSearchMatches=[];chatSearchIdx=-1;
+  document.getElementById('chatSearchCount').textContent='';
+  // Clear media highlights
+  mediaElements.forEach(e=>{e.style.removeProperty('outline');e.style.removeProperty('outline-offset');});
+  mediaElements=[];mediaIdx=-1;
+  currentSearchMode='text';
+  document.getElementById('searchModeText').style.display='flex';
+  document.getElementById('searchModeMedia').style.display='none';
+  document.getElementById('btnSearchImg').classList.remove('active');
+  document.getElementById('btnSearchAud').classList.remove('active');
+}
+function clearChatHighlights(){
+  const area=document.getElementById('messagesArea');
+  area.querySelectorAll('.search-hl').forEach(el=>{
+    const parent=el.parentNode;
+    parent.replaceChild(document.createTextNode(el.textContent),el);
+    parent.normalize();
+  });
+}
+function onChatSearch(){
+  const q=document.getElementById('chatSearchInput').value.trim();
+  clearChatHighlights();
+  chatSearchMatches=[];chatSearchIdx=-1;
+  if(!q){document.getElementById('chatSearchCount').textContent='';return;}
+  // Walk all text nodes in messages area and highlight matches
+  const area=document.getElementById('messagesArea');
+  const walker=document.createTreeWalker(area,NodeFilter.SHOW_TEXT,{
+    acceptNode:n=>{
+      // Skip script, style, input, textarea
+      const tag=n.parentElement?.tagName;
+      if(tag==='SCRIPT'||tag==='STYLE'||tag==='INPUT'||tag==='TEXTAREA')return NodeFilter.FILTER_REJECT;
+      if(n.textContent.toLowerCase().includes(q.toLowerCase()))return NodeFilter.FILTER_ACCEPT;
+      return NodeFilter.FILTER_REJECT;
+    }
+  });
+  const textNodes=[];
+  while(walker.nextNode())textNodes.push(walker.currentNode);
+  const qLower=q.toLowerCase();
+  for(const node of textNodes){
+    const text=node.textContent;
+    const parts=[];
+    let lastIdx=0;
+    let searchFrom=0;
+    while(true){
+      const idx=text.toLowerCase().indexOf(qLower,searchFrom);
+      if(idx===-1)break;
+      if(idx>lastIdx)parts.push(document.createTextNode(text.slice(lastIdx,idx)));
+      const span=document.createElement('span');
+      span.className='search-hl';
+      span.textContent=text.slice(idx,idx+q.length);
+      parts.push(span);
+      chatSearchMatches.push(span);
+      lastIdx=idx+q.length;
+      searchFrom=lastIdx;
+    }
+    if(parts.length){
+      if(lastIdx<text.length)parts.push(document.createTextNode(text.slice(lastIdx)));
+      const frag=document.createDocumentFragment();
+      parts.forEach(p=>frag.appendChild(p));
+      node.parentNode.replaceChild(frag,node);
+    }
+  }
+  document.getElementById('chatSearchCount').textContent=chatSearchMatches.length?`${chatSearchMatches.length} found`:'No matches';
+  if(chatSearchMatches.length){chatSearchIdx=0;highlightCurrent();}
+}
+function chatSearchNav(dir){
+  if(!chatSearchMatches.length)return;
+  chatSearchMatches[chatSearchIdx]?.classList.remove('active');
+  chatSearchIdx=(chatSearchIdx+dir+chatSearchMatches.length)%chatSearchMatches.length;
+  highlightCurrent();
+}
+function highlightCurrent(){
+  const el=chatSearchMatches[chatSearchIdx];
+  if(!el)return;
+  el.classList.add('active');
+  el.scrollIntoView({behavior:'smooth',block:'center'});
+  document.getElementById('chatSearchCount').textContent=`${chatSearchIdx+1} / ${chatSearchMatches.length}`;
+}
+// Keyboard shortcuts for chat search
+document.addEventListener('keydown',e=>{
+  if(e.ctrlKey&&e.key==='f'&&currentConvo){
+    e.preventDefault();
+    const bar=document.getElementById('chatSearchBar');
+    if(bar.style.display!=='flex'){toggleChatSearch();}
+    else{document.getElementById('chatSearchInput').focus();document.getElementById('chatSearchInput').select();}
+  }
+  if(e.key==='Escape'){const bar=document.getElementById('chatSearchBar');if(bar.style.display==='flex')closeChatSearch();}
+  if(e.key==='Enter'&&document.activeElement===document.getElementById('chatSearchInput')){
+    e.preventDefault();chatSearchNav(e.shiftKey?-1:1);
+  }
+});
+
+</script>
+</body>
+</html>
